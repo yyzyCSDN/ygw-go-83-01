@@ -1,0 +1,8 @@
+.git
+.claude
+.verification-cache
+evidence
+runner
+staging
+workspaces
+*.log
