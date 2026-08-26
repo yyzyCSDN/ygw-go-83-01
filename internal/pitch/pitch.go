@@ -58,10 +58,10 @@ func (c *Controller) Feather(target float64) error {
 	wg.Wait()
 	angles := [3]float64{c.blades[0].Angle(), c.blades[1].Angle(), c.blades[2].Angle()}
 	c.state.SetBladeAngles(angles)
-	statusSnapshot := c.state.Snapshot()
-	statusSnapshot.PitchAngle = target
-	statusSnapshot.PitchState = model.PitchFeathered
-	c.state.Replace(statusSnapshot)
+	c.state.Update(func(s *core.Status) {
+		s.PitchAngle = target
+		s.PitchState = model.PitchFeathered
+	})
 	return nil
 }
 

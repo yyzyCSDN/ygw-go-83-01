@@ -14,9 +14,7 @@ func (s *State) SnapshotForRecovery() model.RecoverySnapshot {
 }
 
 func (s *State) RestoreProtection(p model.ProtectionState) {
-	status := s.Snapshot()
-	status.Protection = p
-	s.Replace(status)
+	s.SetProtection(p)
 }
 
 func (s *State) ProtectionState() model.ProtectionState {

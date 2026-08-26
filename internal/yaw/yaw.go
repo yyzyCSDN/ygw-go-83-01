@@ -62,10 +62,10 @@ func (c *Controller) Abort() error {
 	c.mu.Lock()
 	c.aborting = true
 	c.mu.Unlock()
-	statusSnapshot := c.state.Snapshot()
-	statusSnapshot.YawAngle = 0
-	statusSnapshot.YawState = model.YawIdle
-	c.state.Replace(statusSnapshot)
+	c.state.Update(func(s *core.Status) {
+		s.YawAngle = 0
+		s.YawState = model.YawIdle
+	})
 	return nil
 }
 
@@ -82,8 +82,8 @@ func (c *Controller) ResetAbort() {
 }
 
 func (c *Controller) commitYaw(angle float64, state model.YawState) {
-	statusSnapshot := c.state.Snapshot()
-	statusSnapshot.YawAngle = angle
-	statusSnapshot.YawState = state
-	c.state.Replace(statusSnapshot)
+	c.state.Update(func(s *core.Status) {
+		s.YawAngle = angle
+		s.YawState = state
+	})
 }

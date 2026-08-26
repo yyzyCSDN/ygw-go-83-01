@@ -38,10 +38,10 @@ func (s *State) Snapshot() Status {
 	return s.status
 }
 
-func (s *State) Replace(st Status) {
-	s.status = st
-}
-
+// Update mutates the shared status under the state lock. Callers receive a
+// pointer to the current status and must touch only the fields they own; this
+// keeps concurrent writers (pitch, yaw, ...) from overwriting each other's
+// changes the way a whole-structure Replace would.
 func (s *State) Update(fn func(*Status)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
