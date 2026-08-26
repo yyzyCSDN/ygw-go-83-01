@@ -46,26 +46,34 @@ func (c *Controller) Feather(target float64) error {
 	if target < 0 || target > 90 {
 		return model.ErrBladeOutOfRange
 	}
+	// Drive every blade to the same target concurrently, then publish a single
+	// consistent snapshot. Sampling target once (instead of re-reading the
+	// speed provider per blade) keeps the blades from diverging when the
+	// commanded pitch changes mid-feather, which would load the rotor unevenly.
 	var wg sync.WaitGroup
-	bladeTargets := make([]float64, 3)
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			bladeTargets[i] = c.readBladeTarget(i)
+			c.blades[i].setAngle(target)
 		}(i)
 	}
 	wg.Wait()
-	for i := 0; i < 3; i++ {
-		c.blades[i].setAngle(bladeTargets[i])
-	}
+	c.commitBlades(target)
+	return nil
+}
+
+// commitBlades publishes a consistent snapshot of all three blade angles to the
+// shared state. It must be called after the blades have settled so monitoring
+// and the state machine observe all three blades at the same angle rather than
+// a stale or divergent snapshot.
+func (c *Controller) commitBlades(target float64) {
 	angles := [3]float64{c.blades[0].Angle(), c.blades[1].Angle(), c.blades[2].Angle()}
 	c.state.SetBladeAngles(angles)
 	c.state.Update(func(s *core.Status) {
 		s.PitchAngle = target
 		s.PitchState = model.PitchFeathered
 	})
-	return nil
 }
 
 func (c *Controller) CommandedPitch() float64 {
@@ -77,10 +85,6 @@ func (c *Controller) CommandedPitch() float64 {
 		c.cachedGen = gen
 	}
 	return c.cachedPitch
-}
-
-func (c *Controller) readBladeTarget(index int) float64 {
-	return c.speed.CommandedPitch()
 }
 
 func (c *Controller) BladeAngles() [3]float64 {

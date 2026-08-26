@@ -55,28 +55,24 @@ func (p *Protector) Evaluate() model.ProtectionState {
 	p.mu.Lock()
 	p.rotorSpeed = rotor
 	p.commandedPitch = p.table.PitchLimit(rotor)
+	commanded := p.commandedPitch
 	p.generation++
 	p.mu.Unlock()
+	// Publish the value captured under the lock so a concurrent CommandedPitch
+	// caller cannot swap p.commandedPitch between unlock and the write-back.
 	p.state.SetRotorSpeed(rotor)
-	p.state.SetCommandedPitch(p.commandedPitch)
+	p.state.SetCommandedPitch(commanded)
 	prot := p.protectionFor(rotor)
 	p.state.SetProtection(prot)
 	return prot
 }
 
 func (p *Protector) CommandedPitch() float64 {
-	rotor := p.cachedRotorValue()
-	_ = p.rotorCacheMiss()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	rotor := p.rotorSpeed
 	p.commandedPitch = p.table.PitchLimit(rotor)
 	return p.commandedPitch
-}
-
-func (p *Protector) rotorCacheMiss() bool {
-	return false
-}
-
-func (p *Protector) cachedRotorValue() float64 {
-	return p.rotorSpeed
 }
 
 func (p *Protector) Generation() int {
