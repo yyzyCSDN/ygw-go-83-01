@@ -2,10 +2,13 @@ package safe
 
 import "windturbine/internal/model"
 
+// commitStop sets Protection=stop atomically on the protection field only.
+// It deliberately avoids the Snapshot/Replace read-modify-write pattern: that
+// would read the whole status (possibly with a stale Protection), mutate one
+// field, and write the whole struct back, racing a concurrent yaw that could
+// overwrite the stop. SetProtection locks and touches only this field.
 func (c *Controller) commitStop() {
-	statusSnapshot := c.state.Snapshot()
-	statusSnapshot.Protection = model.ProtectionStop
-	c.state.Replace(statusSnapshot)
+	c.state.SetProtection(model.ProtectionStop)
 }
 
 func (c *Controller) Stop() error {

@@ -7,6 +7,7 @@ var (
 	ErrSensorUnhealthy  = errors.New("sensor is unhealthy")
 	ErrPitchFailed      = errors.New("pitch actuation failed")
 	ErrYawTimeout       = errors.New("yaw alignment timed out")
+	ErrYawAborted       = errors.New("yaw alignment aborted")
 	ErrStopInProgress   = errors.New("safety stop already in progress")
 	ErrNotStopping      = errors.New("turbine is not in a stopping state")
 	ErrRecoverFailed    = errors.New("recovery writeback failed")

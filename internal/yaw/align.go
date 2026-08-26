@@ -23,6 +23,7 @@ type aligner struct {
 	probe   AlignmentSensor
 	timeout time.Duration
 	poll    time.Duration
+	aborted func() bool
 }
 
 func (a *aligner) wait(ctx context.Context, target float64) error {
@@ -37,6 +38,9 @@ func (a *aligner) wait(ctx context.Context, target float64) error {
 		case <-timer.C:
 			return model.ErrYawTimeout
 		case <-ticker.C:
+			if a.aborted() {
+				return model.ErrYawAborted
+			}
 			if a.probe.Aligned(target) {
 				return nil
 			}
@@ -45,6 +49,11 @@ func (a *aligner) wait(ctx context.Context, target float64) error {
 }
 
 func (c *Controller) waitAligned(ctx context.Context, target float64) error {
-	a := aligner{probe: c.probe, timeout: c.timeout, poll: time.Millisecond}
+	a := aligner{
+		probe:   c.probe,
+		timeout: c.timeout,
+		poll:    time.Millisecond,
+		aborted: c.isAborting,
+	}
 	return a.wait(ctx, target)
 }
