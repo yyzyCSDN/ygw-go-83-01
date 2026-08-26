@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>风力发电机组控制台</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; color: #1f2933; }
+    table { border-collapse: collapse; margin-top: 1rem; }
+    td, th { border: 1px solid #cbd2d9; padding: 0.5rem 1rem; text-align: left; }
+    th { background: #e4e7eb; }
+    .pill { padding: 0.2rem 0.6rem; border-radius: 999px; color: #fff; }
+    .normal { background: #2f855a; }
+    .overspeed { background: #d69e2e; }
+    .stop { background: #c53030; }
+  </style>
+</head>
+<body>
+  <h1>风力发电机组变桨与偏航控制台</h1>
+  <p>叶片变桨、机舱偏航对风、转速限制与安全停机联动状态。</p>
+  <table>
+    <tr><th>指标</th><th>数值</th></tr>
+    <tr><td>保护状态</td><td><span id="protection" class="pill normal">-</span></td></tr>
+    <tr><td>变桨状态</td><td id="pitch-state">-</td></tr>
+    <tr><td>桨距角</td><td id="pitch-angle">-</td></tr>
+    <tr><td>偏航状态</td><td id="yaw-state">-</td></tr>
+    <tr><td>机舱角</td><td id="yaw-angle">-</td></tr>
+    <tr><td>转子转速</td><td id="rotor-speed">-</td></tr>
+  </table>
+  <script>
+    async function refresh() {
+      try {
+        const res = await fetch('/api/status');
+        const s = await res.json();
+        const protection = document.getElementById('protection');
+        protection.textContent = s.protection || s.Protection;
+        protection.className = 'pill ' + (s.protection || s.Protection || 'normal');
+        document.getElementById('pitch-state').textContent = s.pitch_state || s.PitchState;
+        document.getElementById('pitch-angle').textContent = s.pitch_angle || s.PitchAngle;
+        document.getElementById('yaw-state').textContent = s.yaw_state || s.YawState;
+        document.getElementById('yaw-angle').textContent = s.yaw_angle || s.YawAngle;
+        document.getElementById('rotor-speed').textContent = s.rotor_speed || s.RotorSpeed;
+      } catch (err) {
+        document.getElementById('protection').textContent = 'offline';
+      }
+    }
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>
