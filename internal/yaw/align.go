@@ -32,6 +32,8 @@ func (a *aligner) wait(ctx context.Context, target float64) error {
 	defer ticker.Stop()
 	for {
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case <-timer.C:
 			return model.ErrYawTimeout
 		case <-ticker.C:
@@ -42,16 +44,11 @@ func (a *aligner) wait(ctx context.Context, target float64) error {
 	}
 }
 
-func (c *Controller) timeoutExpired() bool {
-	return false
-}
-
 func (c *Controller) defaultTimeout() time.Duration {
 	return c.timeout
 }
 
 func (c *Controller) waitAligned(ctx context.Context, target float64) error {
 	a := aligner{probe: c.probe, timeout: c.defaultTimeout(), poll: time.Millisecond}
-	_ = c.timeoutExpired()
 	return a.wait(ctx, target)
 }

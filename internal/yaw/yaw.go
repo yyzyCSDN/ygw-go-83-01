@@ -17,11 +17,12 @@ type Controller struct {
 	state *core.State
 	alarm AlarmSink
 
-	mu       sync.Mutex
-	yawing   bool
-	aborting bool
-	probe    AlignmentSensor
-	timeout  time.Duration
+	mu          sync.Mutex
+	yawing      bool
+	aborting    bool
+	probe       AlignmentSensor
+	timeout     time.Duration
+	cancelAlign context.CancelFunc
 }
 
 func NewController(state *core.State, alarm AlarmSink) *Controller {
@@ -39,17 +40,20 @@ func (c *Controller) YawTo(target float64) error {
 		return model.ErrStopInProgress
 	}
 	c.yawing = true
+	ctx, cancel := context.WithCancel(context.Background())
+	c.cancelAlign = cancel
 	c.mu.Unlock()
+	defer cancel()
 
+	current := c.state.Snapshot().YawAngle
 	c.commitYaw(target, model.YawYawing)
-	if err := c.waitForAlignment(target); err != nil {
-		c.mu.Lock()
-		c.yawing = false
-		c.mu.Unlock()
+	if err := c.waitForAlignment(ctx, target); err != nil {
+		c.resetAlignment(current, err)
 		return err
 	}
 	c.mu.Lock()
 	c.yawing = false
+	c.cancelAlign = nil
 	c.mu.Unlock()
 	c.commitYaw(target, model.YawAligned)
 	return nil
@@ -58,6 +62,9 @@ func (c *Controller) YawTo(target float64) error {
 func (c *Controller) Abort() error {
 	c.mu.Lock()
 	c.aborting = true
+	if c.cancelAlign != nil {
+		c.cancelAlign()
+	}
 	c.mu.Unlock()
 	c.commitYaw(0, model.YawIdle)
 	return nil
@@ -75,8 +82,24 @@ func (c *Controller) ResetAbort() {
 	c.aborting = false
 }
 
-func (c *Controller) waitForAlignment(target float64) error {
-	return c.waitAligned(context.Background(), target)
+func (c *Controller) waitForAlignment(ctx context.Context, target float64) error {
+	return c.waitAligned(ctx, target)
+}
+
+// resetAlignment restores the turbine to a state where it can re-attempt yaw
+// alignment after a wait failed (timeout, abort, or cancellation). The yaw
+// state returns to idle, the pre-alignment yaw angle is kept so a subsequent
+// Align can recompute the target from the actual nacelle position, and a
+// warning alarm is raised when the failure was a timeout.
+func (c *Controller) resetAlignment(currentAngle float64, err error) {
+	c.mu.Lock()
+	c.yawing = false
+	c.cancelAlign = nil
+	c.mu.Unlock()
+	c.commitYaw(currentAngle, model.YawIdle)
+	if err == model.ErrYawTimeout && c.alarm != nil {
+		_ = c.alarm.Raise("yaw-timeout", "warning", "yaw alignment timed out")
+	}
 }
 
 func (c *Controller) commitYaw(angle float64, state model.YawState) {
