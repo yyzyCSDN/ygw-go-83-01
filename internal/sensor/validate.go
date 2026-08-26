@@ -32,6 +32,9 @@ func ValidateSample(sample model.WindSample) bool {
 
 func (c *Collector) Plausible(id string) bool {
 	sample := c.LastSample(id)
+	if sample == nil || !sample.HasData {
+		return false
+	}
 	return ValidateSample(*sample)
 }
 

@@ -36,7 +36,12 @@ func (p *Protector) RotorSpeed() float64 {
 	return p.rotorFromSample(p.collect.LastSample(p.sensor))
 }
 
+// rotorFromSample 从采样读出转速。空读数（未注册/无数据）按无效采样处理，
+// 返回 0 转速而非解引用 nil 字段。
 func (p *Protector) rotorFromSample(sample *model.WindSample) float64 {
+	if sample == nil || !sample.HasData {
+		return 0
+	}
 	return sample.RotorSpeed
 }
 
@@ -50,8 +55,14 @@ func (p *Protector) protectionFor(rotor float64) model.ProtectionState {
 	return model.ProtectionNormal
 }
 
+// Evaluate 执行一轮转速保护评估。空读数（测风通道未注册或尚无采样）视作
+// 无效采样：跳过本轮越限判断，保留上一拍保护状态，协程继续运行，保护链路
+// 不能因为一次空读数而崩溃。
 func (p *Protector) Evaluate() model.ProtectionState {
 	sample := p.collect.LastSample(p.sensor)
+	if sample == nil || !sample.HasData {
+		return p.state.Snapshot().Protection
+	}
 	rotor := sample.RotorSpeed
 	p.mu.Lock()
 	p.rotorSpeed = rotor

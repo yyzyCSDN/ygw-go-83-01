@@ -57,15 +57,18 @@ func (c *Collector) Feed(id string, windSpeed, rotorSpeed float64) {
 	s.Healthy = true
 }
 
+// LastSample 取回指定测风通道的最新采样。通道未注册、不健康或尚无数据时
+// 返回空读数（HasData=false 的无效采样）而非 nil，调用方据此跳过本轮评估，
+// 保护协程不能因为一次空读数解引用 nil 而崩溃。
 func (c *Collector) LastSample(id string) *model.WindSample {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	s, ok := c.sensors[id]
 	if !ok {
-		return nil
+		return &model.WindSample{}
 	}
 	if !s.Healthy {
-		return nil
+		return &model.WindSample{}
 	}
 	sample := &model.WindSample{
 		WindSpeed:  s.WindSpeed,
